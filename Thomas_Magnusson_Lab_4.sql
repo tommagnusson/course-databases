@@ -68,20 +68,27 @@ cid in (
 
 -- 5. Get the ids of products not ordered by any customers who placed any    --
 --     order through agents a02 or a03, in pid order from highest to lowest. --
+-- Didn't realize the scope of what you wanted :|
 
--- the products not ordered by customers in...
+-- the products not in...
 select pid
-from orders
-where cid not in (
-  -- the list of customers who placed orders through a02 or a03 --
-  select distinct cid
+from Orders
+where pid not in (
+  -- the list of products ordered by customers in...
+  select pid
   from orders
-  where aid in ('a02', 'a03')
+  where cid in (
+    -- the list of customers who placed orders through a02 or a03 --
+    select distinct cid
+    from orders
+    where aid in ('a02', 'a03')
+  )
 )
 order by pid desc;
 
 
--- 6. Get the name, discount, and city for all customers who place orders through agents in London. --
+-- 6. Get the name, discount, and city for all customers who place orders through agents in TOKYO or NEW YORK. --
+-- And I copied this one wrong. I dunno what was going on when I did this sorry!
 
 -- The name, discount and city for all customer in... --
 select name, discountPct, city
@@ -91,10 +98,10 @@ where cid in (
   select cid
   from orders
   where aid in (
-    -- the list of agents in London --
+    -- the list of agents in Tokyo or NY --
     select aid
     from agents
-    where city in ('London')
+    where city in ('Tokyo', 'New York')
   )
 );
 
