@@ -72,12 +72,15 @@ on o.cid = c.cid
 where a.city = 'Newark';
 
 -- 6. Write a query to check the accuracy of the totalUSD column in the Orders table.
+-- Stupid ass discounts, I didn't even see that.
 
-select o.quantity, p.priceUSD, o.totalUSD, (o.quantity * p.priceUSD) as "Checked Total USD", ((o.quantity * p.priceUSD) = o.totalUSD) as "Stored total = checked total"
+select o.quantity, p.priceUSD, o.totalUSD, ((o.quantity * p.priceUSD - (o.quantity * p.priceUSD * (c.discountPct / 100)))) as "Checked Total USD", ((o.quantity * p.priceUSD - (o.quantity * p.priceUSD * (c.discountPct / 100))) = o.totalUSD) as "Stored total = checked total"
 from Orders o
 inner join Products p
 on o.pid = p.pid
-where ((o.quantity * p.priceUSD) != o.totalUSD);
+inner join Customers c
+on o.cid = c.cid
+where ((o.quantity * p.priceUSD - (o.quantity * p.priceUSD * (c.discountPct / 100))) != o.totalUSD);
 
 -- 7. What's the different between a LEFT OUTER JOIN and a RIGHT OUTER JOIN? Give example queries in SQL to demonstrate.
 
