@@ -762,13 +762,6 @@ WHERE d.eventTime > NOW();
 
 -- Triggers
 
--- when you insert an athlete into a roster
--- the position for that athlete must be a valid
--- position for that team's sport.
-CREATE TRIGGER check_roster_position
-BEFORE INSERT ON Roster FOR EACH ROW
-EXECUTE PROCEDURE checkRosterPosition();
-
 CREATE OR REPLACE FUNCTION checkRosterPosition()
   RETURNS TRIGGER AS $$
 BEGIN
@@ -785,6 +778,15 @@ BEGIN
 
 END;
 $$ LANGUAGE 'plpgsql';
+
+-- when you insert an athlete into a roster
+-- the position for that athlete must be a valid
+-- position for that team's sport.
+CREATE TRIGGER check_roster_position
+BEFORE INSERT ON Roster FOR EACH ROW
+EXECUTE PROCEDURE checkRosterPosition();
+
+
 
 -- Stored Procedures
 
@@ -825,13 +827,43 @@ $$ LANGUAGE 'plpgsql';
 
 SELECT * FROM macronutrientPercentageOfMeal(2);
 
+CREATE OR REPLACE VIEW MacroPercentages
+AS
+SELECT
+  mid,
+    totalProteinGrams / totalMacros * 100 AS proteinPercentage,
+    totalFatGrams / totalMacros * 100 AS fatPercentage,
+    totalCarbGrams / totalMacros * 100 AS carbPercentage
+FROM BaselineMealNutrition;
+
+
 -- Finding the meals that fit a given ratio, to a degree of accuracy.
-CREATE OR REPLACE FUNCTION name()
-  RETURNS INT AS $$
+CREATE OR REPLACE FUNCTION findMealsForRatio(pos TEXT, sportText TEXT, hoursBefGame INTEGER, thresh DEC)
+  RETURNS TABLE(
+    mid INTEGER
+  ) AS $$
+DECLARE
+  percentageRow RECORD;
 BEGIN
-  
+  SELECT INTO percentageRow
+    r.carbsMultiplier / (r.carbsMultiplier + r.proteinMultiplier + r.fatMultiplier) * 100 AS carbsPercentage,
+    r.proteinMultiplier / (r.carbsMultiplier + r.proteinMultiplier + r.fatMultiplier) * 100 AS proteinPercentage,
+    r.carbsMultiplier / (r.carbsMultiplier + r.proteinMultiplier + r.fatMultiplier) * 100 AS fatPercentage
+  FROM Ratios r
+  WHERE r.position = pos AND r.sport = sportText AND r.hoursBeforeGame = hoursBefGame;
+
+  RETURN QUERY SELECT m.mid
+  FROM MacroPercentages m
+  WHERE ABS(percentageRow.proteinPercentage - m.proteinPercentage) < thresh
+  AND ABS(percentageRow.fatPercentage - m.fatPercentage) < thresh
+  AND ABS(percentageRow.carbsPercentage - m.carbPercentage) < thresh;
+
 END;
 $$ LANGUAGE 'plpgsql';
+
+SELECT *
+FROM findMealsForRatio('Lineman', 'Football', 1, 20)
+INNER JOIN Meals USING (mid);
 
 -- Roles
 CREATE ROLE Admin;
