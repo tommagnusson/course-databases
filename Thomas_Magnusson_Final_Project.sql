@@ -1,3 +1,6 @@
+DROP SCHEMA PUBLIC CASCADE;
+CREATE SCHEMA PUBLIC;
+
 -- Thomas Magnusson
 -- Database Management - Final Project
 -- Alan Labouseur
@@ -12,8 +15,10 @@ CREATE TABLE People (
   pid SERIAL PRIMARY KEY,
   firstName TEXT NOT NULL,
   lastName TEXT NOT NULL,
-  email TEXT
+  email TEXT NOT NULL
 );
+
+
 
 -- People who use the Corvis website or mobile app.
 -- Limited to: Athletes and Coaches.
@@ -50,6 +55,10 @@ CREATE TABLE Positions (
   name TEXT NOT NULL PRIMARY KEY
 );
 
+-- Relates sports to a position.
+-- Seems like it's not a many to many relation,
+-- but the same position name might be
+-- in different sports.
 CREATE TABLE SportPositions (
   sportName TEXT NOT NULL REFERENCES Sports(name),
   positionsName TEXT NOT NULL REFERENCES Positions(name),
@@ -72,7 +81,8 @@ CREATE TABLE TeamStaff (
   PRIMARY KEY(coachPid, tid)
 );
 
--- A specific athlete on a team, and what that athlete's position is.
+-- A specific athlete on a team,
+-- and what that athlete's position is.
 CREATE TABLE Roster (
   athletePid INTEGER NOT NULL REFERENCES Athletes(pid),
   tid INTEGER NOT NULL REFERENCES Teams(tid),
@@ -85,10 +95,14 @@ CREATE TABLE Roster (
 
 -- BEGIN RANDOM STUFF
 
+-- Corvis only has a finite number
+-- of available zip codes for delivery.
 CREATE TABLE ValidZipCodes (
   zipCode TEXT NOT NULL PRIMARY KEY
 );
 
+-- Addresses for kitchens and
+-- deliveries.
 CREATE TABLE Addresses (
   aid SERIAL NOT NULL PRIMARY KEY,
   address TEXT NOT NULL,
@@ -110,7 +124,8 @@ CREATE TABLE ServingUnits (
 -- For a meal. Base serving size because an Ingredient like Ham
 -- might require a multiple amount of the base serving size, which
 -- would probably be 1 oz or something like that. Other Ingredients,
--- like Gatorade, would have base serving size as 1 and the serving unit as 8oz. Bottle.
+-- like Gatorade, would have base serving size as 1 and
+-- the serving unit as 8oz. Bottle.
 CREATE TABLE Ingredients (
   iid SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -170,7 +185,7 @@ CREATE TABLE Orders (
 
   -- The id for Stripe, an online payment service.
   -- Paying with a card online generates and id.
-  stripeChargeId TEXT NOT NULL,
+  stripeChargeId TEXT NOT NULL UNIQUE,
 
   PRIMARY KEY(tid, placedByPid, placedAt)
 );
@@ -194,6 +209,8 @@ CREATE TABLE Contacts (
 CREATE TABLE Deliveries (
   did SERIAL NOT NULL PRIMARY KEY,
 
+  eventTime TIMESTAMP NOT NULL,
+
   orderTid INTEGER NOT NULL,
   orderPlacedByPid INTEGER NOT NULL,
   orderPLacedAt TIMESTAMP NOT NULL,
@@ -212,7 +229,9 @@ CREATE TABLE Deliveries (
 CREATE TABLE Selections (
   athletePid INTEGER NOT NULL REFERENCES Athletes(pid),
   did INTEGER NOT NULL REFERENCES Deliveries(did),
-  mid INTEGER NOT NULL REFERENCES Meals(mid),
+
+  -- nullable, if the athlete has not made a selection yet.
+  mid INTEGER DEFAULT NULL REFERENCES Meals(mid),
   madeAt TIMESTAMP NOT NULL,
 
   PRIMARY KEY(athletePid, did)
@@ -230,7 +249,7 @@ CREATE TABLE CustomMealIngredients (
   REFERENCES Selections(athletePid, did),
 
   iid INTEGER NOT NULL REFERENCES Ingredients(iid),
-  numberOfServings DECIMAL NOT NULL,
+  numberOfServings DECIMAL NOT NULL DEFAULT 1,
 
   PRIMARY KEY (selectionAthletePid, selectionDid, iid)
 );
@@ -248,8 +267,9 @@ CREATE TABLE MealTimeframes (
 
 -- END DELIVERY STUFF
 
--- BEGIN KITCHEN STUFF
+-- BEGIN KITCHEN STUFF$
 
+-- Who manages the kitchens?
 CREATE TABLE KitchenManagers (
   pid INTEGER NOT NULL PRIMARY KEY REFERENCES People(pid),
 
@@ -257,6 +277,8 @@ CREATE TABLE KitchenManagers (
   phone TEXT
 );
 
+-- Where the food is processed. Needed to provide contact information
+-- to anyone needing further assistance.
 CREATE TABLE Kitchens (
   kid SERIAL NOT NULL PRIMARY KEY,
   name TEXT NOT NULL,
@@ -264,6 +286,7 @@ CREATE TABLE Kitchens (
   phone TEXT NOT NULL
 );
 
+-- Managers and the kitchens they manage.
 CREATE TABLE ManagersOfKitchens (
   managerPid INTEGER NOT NULL REFERENCES KitchenManagers(pid),
   kid INTEGER NOT NULL REFERENCES Kitchens(kid),
@@ -275,6 +298,11 @@ CREATE TABLE ManagersOfKitchens (
 
 -- BEGIN MAGIC STUFF
 
+-- The ratios of macronutrients necessary for a given
+-- position within a sport for a meal.
+-- Also changes based on the eat time (when the athletes
+-- will consume the meal in relation to the event they are
+-- competing in).
 CREATE TABLE Ratios (
   position TEXT NOT NULL,
   sport TEXT NOT NULL,
@@ -291,10 +319,6 @@ CREATE TABLE Ratios (
 );
 
 -- ENG MAGIC STUFF
-
--- BEGIN INSERT STATEMENTS
-
--- BEGIN CONSTANTS
 
 -- People
 INSERT INTO public.people (pid, firstname, lastname, email) VALUES (1, 'Tom', 'Magnusson', 'tommagnuss@gmail.com');
@@ -364,7 +388,6 @@ INSERT INTO public.eattime (hoursbeforegame) VALUES (5);
 INSERT INTO public.eattime (hoursbeforegame) VALUES (6);
 
 -- Locations
-
 INSERT INTO public.validzipcodes (zipcode) VALUES ('15007');
 INSERT INTO public.validzipcodes (zipcode) VALUES ('15008');
 INSERT INTO public.validzipcodes (zipcode) VALUES ('15009');
@@ -376,7 +399,6 @@ INSERT INTO public.addresses (aid, address, address2, city, state, zipcode) VALU
 INSERT INTO public.addresses (aid, address, address2, city, state, zipcode) VALUES (4, '1 Baking Avenue', null, 'Philadelphia', 'PA', '19019');
 
 -- Kitchens
-
 INSERT INTO public.kitchens (kid, name, aid, phone) VALUES (1, 'Primary Kitchen', 4, '255-555-1414');
 INSERT INTO public.kitchens (kid, name, aid, phone) VALUES (2, 'Auxiliary Kitchen', 4, '818-555-1690');
 
@@ -421,7 +443,7 @@ INSERT INTO public.meals (mid, name) VALUES (4, 'Chicken Dinner');
 INSERT INTO public.meals (mid, name) VALUES (2, 'Classic Spaghetti');
 INSERT INTO public.meals (mid, name) VALUES (5, 'Meatball Spaghetti');
 
--- Ingredents in Meals
+-- Ingredients in Meals
 INSERT INTO public.ingredientsinmeals (iid, mid, numberofservings) VALUES (3, 1, 1);
 INSERT INTO public.ingredientsinmeals (iid, mid, numberofservings) VALUES (4, 1, 1);
 INSERT INTO public.ingredientsinmeals (iid, mid, numberofservings) VALUES (7, 1, 1);
@@ -441,14 +463,31 @@ INSERT INTO public.ingredientsinmeals (iid, mid, numberofservings) VALUES (6, 1,
 INSERT INTO public.ingredientsinmeals (iid, mid, numberofservings) VALUES (10, 2, null);
 INSERT INTO public.ingredientsinmeals (iid, mid, numberofservings) VALUES (11, 2, null);
 
+-- how many hours before a game you should eat a meal
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (1, 1);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (2, 1);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (3, 1);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (4, 1);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (1, 3);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (2, 3);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (3, 3);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (-2, 4);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (-1, 4);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (-2, 2);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (-1, 2);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (5, 5);
+INSERT INTO public.mealtimeframes (hoursbeforegame, mid) VALUES (4, 5);
+
+-- accommodative meals
+INSERT INTO public.accommodativemeals (mid, accommodation) VALUES (1, 'Nut Free');
+INSERT INTO public.accommodativemeals (mid, accommodation) VALUES (2, 'Nut Free');
+INSERT INTO public.accommodativemeals (mid, accommodation) VALUES (4, 'Nut Free');
+INSERT INTO public.accommodativemeals (mid, accommodation) VALUES (5, 'Nut Free');
+
 -- Kitchen Managers
 INSERT INTO public.kitchenmanagers (pid, phone) VALUES (1, '203-555-2077');
 INSERT INTO public.kitchenmanagers (pid, phone) VALUES (34, '555-555-4242');
 INSERT INTO public.kitchenmanagers (pid, phone) VALUES (35, '602-555-9090');
-
--- Kitchens
-INSERT INTO public.kitchens (kid, name, aid, phone) VALUES (1, 'Primary Kitchen', 4, '255-555-1414');
-INSERT INTO public.kitchens (kid, name, aid, phone) VALUES (2, 'Auxiliary Kitchen', 4, '818-555-1690');
 
 -- Managers of kitchens
 INSERT INTO public.managersofkitchens (managerpid, kid) VALUES (1, 1);
@@ -489,6 +528,7 @@ INSERT INTO public.users (pid, password) VALUES (32, 'its going okay for me');
 INSERT INTO public.users (pid, password) VALUES (33, 'lots of boilerplate');
 INSERT INTO public.users (pid, password) VALUES (34, 'alpaca');
 INSERT INTO public.users (pid, password) VALUES (35, 'password1234');
+INSERT INTO public.users (pid, password) VALUES (28, 'somepassword1234');
 
 -- Coaches
 INSERT INTO public.coaches (pid) VALUES (1);
@@ -498,4 +538,337 @@ INSERT INTO public.coaches (pid) VALUES (34);
 INSERT INTO public.teamstaff (coachpid, tid) VALUES (1, 1);
 INSERT INTO public.teamstaff (coachpid, tid) VALUES (34, 3);
 
---
+-- Athletes
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (9, '1998-12-01', 70, 200, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (10, '1998-12-17', 75, 190, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (11, '1998-07-07', 68, 150, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (12, '1998-11-18', 70, 200, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (13, '1996-03-11', 71, 170, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (14, '1994-03-22', 67, 150, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (15, '1998-08-04', 69, 156, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (16, '1998-12-24', 66, 153, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (17, '1998-03-16', 62, 135, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (18, '1998-12-21', 70, 160, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (19, '1997-05-24', 75, 210, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (20, '1998-05-31', 77, 200, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (21, '1996-03-13', 75, 240, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (22, '1997-01-03', 67, 140, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (23, '1996-04-16', 66, 155, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (24, '1996-03-03', 66, 153, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (25, '1998-12-17', 68, 147, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (26, '1995-09-16', 63, 136, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (28, '1996-02-14', 63, 140, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (29, '1997-11-03', 64, 133, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (30, '1997-04-01', 67, 146, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (31, '1997-12-25', 66, 158, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (32, '1998-10-31', 69, 170, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (33, '1996-08-19', 60, 191, 'female');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (34, '1998-07-13', 62, 122, 'male');
+INSERT INTO public.athletes (pid, birthdate, heightinches, weightpounds, gender) VALUES (35, '1994-07-15', 60, 134, 'male');
+
+-- Put athletes into teams
+INSERT INTO public.roster (athletepid, tid, position) VALUES (9, 1, 'Lineman');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (10, 1, 'Lineman');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (11, 1, 'Lineman');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (12, 1, 'Quarterback');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (13, 1, 'Running Back');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (14, 1, 'Running Back');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (15, 1, 'Wide Receiver');
+
+INSERT INTO public.roster (athletepid, tid, position) VALUES (17, 3, 'Defender');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (18, 3, 'Defender');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (19, 3, 'Attack');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (20, 3, 'Attack');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (21, 3, 'Attack');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (22, 3, 'Attack');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (23, 3, 'Middy');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (24, 3, 'Middy');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (25, 3, 'Middy');
+INSERT INTO public.roster (athletepid, tid, position) VALUES (26, 3, 'Middy');
+
+-- Coaches make orders
+INSERT INTO public.orders (tid, placedbypid, placedat, stripechargeid) VALUES (1, 1, '2017-11-06 16:29:24.569000', 'fakeStripeCharge1');
+INSERT INTO public.orders (tid, placedbypid, placedat, stripechargeid) VALUES (1, 1, '2017-11-06 16:40:04.324000', 'fakeStripeCharge2');
+INSERT INTO public.orders (tid, placedbypid, placedat, stripechargeid) VALUES (3, 34, '2017-12-02 16:33:18.976000', 'fakeStripeCharge4');
+
+-- Create the contacts for the deliveries
+INSERT INTO public.contacts (pid, phone) VALUES (1, '205-555-5555');
+INSERT INTO public.contacts (pid, phone) VALUES (34, '204-1515-2000');
+
+-- Orders consist of many deliveries
+INSERT INTO public.deliveries (did, ordertid, orderplacedbypid, orderplacedat, numgenericmeals, hoursbeforegame, contactpid, addressaid, eventTime) VALUES (1, 1, 1, '2017-11-06 16:29:24.569000', 1, 2, 1, 2, '2017-12-17 16:29:24.569000');
+INSERT INTO public.deliveries (did, ordertid, orderplacedbypid, orderplacedat, numgenericmeals, hoursbeforegame, contactpid, addressaid, eventTime) VALUES (2, 1, 1, '2017-11-06 16:29:24.569000', 1, 3, 1, 2, '2017-12-19 16:29:24.569000');
+INSERT INTO public.deliveries (did, ordertid, orderplacedbypid, orderplacedat, numgenericmeals, hoursbeforegame, contactpid, addressaid, eventTime) VALUES (3, 1, 1, '2017-11-06 16:40:04.324000', 2, 2, 1, 3, '2017-12-20 16:29:24.569000');
+INSERT INTO public.deliveries (did, ordertid, orderplacedbypid, orderplacedat, numgenericmeals, hoursbeforegame, contactpid, addressaid, eventTime) VALUES (4, 3, 34, '2017-12-02 16:33:18.976000', 3, -2, 34, 3, '2017-12-21 16:29:24.569000');
+
+-- Athletes select meals
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (10, 1, 2, '2017-12-03 13:51:22.715000');
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (15, 1, 1, '2017-12-03 08:53:33.599000');
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (9, 1, 1, '2017-12-03 14:53:53.809000');
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (10, 2, 3, '2017-12-03 16:55:43.052000');
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (15, 2, 1, '2017-12-03 07:55:45.899000');
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (20, 4, 2, '2017-12-03 05:57:21.781000');
+INSERT INTO public.selections (athletepid, did, mid, madeat) VALUES (26, 4, 4, '2017-12-03 12:59:58.734000');
+
+-- Athletes make selections for these deliveries
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (10, 1, 10, 2.3);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (10, 1, 11, 3.8);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (15, 1, 2, 2);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (15, 1, 5, 2.4);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (9, 1, 5, 2);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (9, 1, 2, 1.5);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (15, 2, 2, 2);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (15, 2, 5, 2.4);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (15, 2, 6, 3);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (15, 1, 6, 3);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (20, 4, 10, 3.2);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (20, 4, 11, 2.1);
+INSERT INTO public.custommealingredients (selectionathletepid, selectiondid, iid, numberofservings) VALUES (26, 4, 17, 2.7);
+
+-- Views
+
+-- All Athletes allows programmers to avoid inner joins.
+CREATE VIEW AllAthletes
+AS
+SELECT p.pid, p.firstName, p.lastName, p.email, a.birthdate, a.gender, a.heightInches, a.weightPounds
+FROM People p
+INNER JOIN Athletes a
+  ON p.pid = a.pid;
+
+SELECT * FROM AllAthletes;
+
+-- All Coaches allow programmers to avoid inner joins.
+CREATE VIEW AllCoaches
+AS
+SELECT p.*
+FROM People p
+INNER JOIN Coaches c
+  ON p.pid = c.pid;
+
+SELECT * FROM AllCoaches;
+
+CREATE VIEW AllIngredientsOfAllMeals
+AS
+SELECT
+  m.mid,
+  m.name AS mealName,
+  i.iid,
+  i.name AS ingredientName,
+  i.baseServingSize,
+  i.baseServingUnit,
+  i.calories,
+  i.proteinGrams,
+  i.carbGrams,
+  i.fatGrams
+FROM Ingredients i
+INNER JOIN IngredientsInMeals iim USING (iid)
+INNER JOIN Meals m USING (mid)
+ORDER BY mid ASC;
+
+SELECT * FROM AllIngredientsOfAllMeals;
+
+SELECT *
+FROM AllIngredientsOfAllMeals;
+
+CREATE VIEW AccurateAllIngredientsOfAllMeals
+AS
+SELECT
+  a.mid,
+  a.mealName,
+  a.iid,
+  a.ingredientName,
+  COALESCE(iim.numberOfServings * a.baseServingSize, a.baseServingSize) AS numberOfServings,
+  a.baseServingUnit,
+  COALESCE(iim.numberOfServings * a.calories, a.calories) AS calories,
+  COALESCE(iim.numberOfServings * a.proteinGrams, a.proteinGrams) AS proteinGrams,
+  COALESCE(iim.numberOfServings * a.carbGrams, a.carbGrams) AS carbGrams,
+  COALESCE(iim.numberOfServings * a.fatGrams, a.fatGrams) AS fatGrams
+FROM AllIngredientsOfAllMeals a
+INNER JOIN IngredientsInMeals iim
+ON iim.iid = a.iid AND iim.mid = a.mid
+ORDER BY mid;
+
+SELECT * FROM AccurateAllIngredientsOfAllMeals;
+
+
+-- To be filled in by the custom meal ingredients servings
+CREATE VIEW NullableAllIngredientsOfAllMeals
+AS
+SELECT
+  a.mid,
+  a.mealName,
+  a.iid,
+  a.ingredientName,
+  iim.numberOfServings * a.baseServingSize AS numberOfServings,
+  a.baseServingUnit,
+  iim.numberOfServings * a.calories AS calories,
+  iim.numberOfServings * a.proteinGrams AS proteinGrams,
+  iim.numberOfServings * a.carbGrams AS carbGrams,
+  iim.numberOfServings * a.fatGrams AS fatGrams
+FROM AllIngredientsOfAllMeals a
+INNER JOIN IngredientsInMeals iim
+ON iim.iid = a.iid AND iim.mid = a.mid
+ORDER BY mid;
+
+-- Report for the nutrition statistics
+CREATE VIEW BaselineMealNutrition
+AS
+SELECT
+  mid,
+  mealName,
+  COUNT(iid) AS numberOfIngredients,
+  SUM(calories) AS totalCalories,
+  SUM(proteinGrams) AS totalProteinGrams,
+  SUM(carbGrams) AS totalCarbGrams,
+  SUM(fatGrams) AS totalFatGrams,
+  SUM(proteinGrams + carbGrams + fatGrams) AS totalMacros
+FROM AccurateAllIngredientsOfAllMeals
+GROUP BY (mid, mealName);
+
+SELECT * FROM BaselineMealNutrition;
+
+-- Pending selections...
+CREATE VIEW UndeliveredSelections
+AS
+SELECT
+  p.firstName || ' ' || p.lastName AS athleteName,
+  position,
+  m.name,
+  hoursBeforeGame,
+  pe.firstName || ' ' || pe.lastName AS contactName,
+  c.phone AS contactPhoneNumber,
+  address,
+  coalesce(address2, '') AS address2,
+  city,
+  state,
+  zipcode,
+  (d.eventTime - NOW()) AS countDown
+FROM Selections s
+INNER JOIN Deliveries d
+  USING (did)
+INNER JOIN People p
+  ON p.pid = s.athletePid
+INNER JOIN Roster r
+  USING (athletePid)
+INNER JOIN Addresses a
+  ON a.aid = d.addressAid
+INNER JOIN Meals m
+  USING (mid)
+INNER JOIN People pe
+  ON d.contactPid = pe.pid
+INNER JOIN Contacts c
+  ON pe.pid = c.pid
+WHERE d.eventTime > NOW();
+
+-- Triggers
+
+-- when you insert an athlete into a roster
+-- the position for that athlete must be a valid
+-- position for that team's sport.
+CREATE TRIGGER check_roster_position
+BEFORE INSERT ON Roster FOR EACH ROW
+EXECUTE PROCEDURE checkRosterPosition();
+
+CREATE OR REPLACE FUNCTION checkRosterPosition()
+  RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.position IN
+         (SELECT positionsName
+           FROM SportPositions
+           WHERE sportName IN
+              (SELECT sport
+               FROM Teams
+               WHERE tid = NEW.tid)) THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'Athlete must have a position in correct sport.';
+
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- Stored Procedures
+
+-- Reports an athlete's average caloric consumption for all selections.
+CREATE OR REPLACE FUNCTION averageCaloricConsumption(pidOfAthlete INTEGER)
+  RETURNS INTEGER AS $$
+DECLARE
+  avg INTEGER;
+BEGIN
+  SELECT AVG(totalCalories)
+  INTO avg
+  FROM Selections
+  INNER JOIN BaselineMealNutrition USING (mid)
+  GROUP BY Selections.athletePid
+  HAVING Selections.athletePid = pidOfAthlete;
+  return avg;
+END;
+$$ LANGUAGE 'plpgsql';
+
+SELECT averageCaloricConsumption(15);
+
+-- Find the macronutrient percentage of a meal
+CREATE OR REPLACE FUNCTION macronutrientPercentageOfMeal(mealId INTEGER)
+  RETURNS TABLE(
+    proteinPercentage DECIMAL,
+    fatPercentage DECIMAL,
+    carbPercentage DECIMAL
+  ) AS $$
+BEGIN
+  RETURN QUERY SELECT
+    totalProteinGrams / totalMacros * 100 AS proteinPercentage,
+    totalFatGrams / totalMacros * 100 AS fatPercentage,
+    totalCarbGrams / totalMacros * 100 AS carbPercentage
+  FROM BaselineMealNutrition
+  WHERE BaselineMealNutrition.mid = mealId;
+END;
+$$ LANGUAGE 'plpgsql';
+
+SELECT * FROM macronutrientPercentageOfMeal(2);
+
+-- Finding the meals that fit a given ratio, to a degree of accuracy.
+CREATE OR REPLACE FUNCTION name()
+  RETURNS INT AS $$
+BEGIN
+  
+END;
+$$ LANGUAGE 'plpgsql';
+
+-- Roles
+CREATE ROLE Admin;
+CREATE ROLE Coach;
+CREATE ROLE Athlete;
+CREATE ROLE KitchenManager;
+
+-- Admins have a lot of power.
+GRANT ALL ON ALL TABLES IN SCHEMA public TO Admin;
+
+-- Revoke all the powers...
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM Coach;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM Athlete;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM KitchenManager;
+
+-- Coaches deal only with these tables
+GRANT SELECT, INSERT, UPDATE ON Teams, Orders, Deliveries, Selections,
+People, Users, Athletes, Coaches, Roster, Contacts
+TO Coach;
+
+-- shouldn't be able to change any of the meals.
+GRANT SELECT ON Meals, IngredientsInMeals, Ingredients,
+CustomMealIngredients, Accommodations, AccommodativeMeals
+TO Coach;
+
+-- Update their selections.
+GRANT SELECT, UPDATE ON Selections TO Athlete;
+GRANT SELECT ON Roster, Athletes, Meals, IngredientsInMeals, Ingredients,
+CustomMealIngredients, Accommodations, AccommodativeMeals
+TO Athlete;
+
+-- Kitchen managers have all the power to change meal-related things.
+GRANT ALL ON EatTime, MealTimeframes, Meals, Accommodations,
+AccommodativeMeals, Ingredients, CustomMealIngredients, Meals,
+IngredientsInMeals, Kitchens,KitchenManagers, ManagersOfKitchens
+TO KitchenManager;
+
+-- But they can only see the stuff that Athletes and Coaches can change.
+GRANT SELECT ON Deliveries, Contacts, Selections, Athletes, People
+TO KitchenManager;
